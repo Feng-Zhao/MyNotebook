@@ -28,3 +28,16 @@ Class对象是存储类的所有类型信息的java对象，获取Class对象的
 3. System ClassLoader 系统类加载器：
    sun.misc.Launcher$AppClassLoader。负责加载系统类路径java -classpath或-D java.class.path 指定路径下的类库，即classpath路径，一般情况下该类加载是程序中默认的类加载器，通过ClassLoader#getSystemClassLoader()方法可以获取到该类加载器。
 
+### 动态代理
+```DaynamicProxy``` 实现 ```InvocationHandler``` 接口，重写 ``` public Object invoke(Object proxy, Method method,Object[] args) throwsThrowable ``` 方法，
+将被代理的 ```Object``` 传给 ```DaynamicProxy```, 将 ```DaynamicProxy``` 传给 
+
+
+```java
+SomeInterface proxyed = (SomeInterface) Proxy.newProxyInstance(
+   SomeInterface.class.getClassLoader(), // 要使用的ClassLoader
+   new Class[]{SomeInterface.class}, // 要被代理的接口
+   new DynamicProxyHandler(real) ); // 代理的 handler,并将被代理的 Object 传给代理handler
+// 将返回转换为被代理的接口,方便调用
+
+```
