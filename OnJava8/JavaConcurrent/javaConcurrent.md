@@ -4,7 +4,7 @@
 
 ## 对象 对象头
 
-![](/MyNotebook/OnJava8/pic/对象头结构.png)
+![](../pic/对象头结构.png)
 
 ## Synchronize
 
