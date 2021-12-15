@@ -1,4 +1,83 @@
 [toc]
+## 基础IO
+
+基础 IO 总体来说分为两类 一类处理字节流 [`InputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/InputStream.html) and [`OutputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/OutputStream.html), 一类处理字符流 [`Reader`](https://docs.oracle.com/javase/8/docs/api/java/io/Reader.html) and [`Writer`](https://docs.oracle.com/javase/8/docs/api/java/io/Writer.html)
+
+### Byte Streams
+
+基础的接口 字节类 IO流 [`InputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/InputStream.html) and [`OutputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/OutputStream.html)
+
+### Character Streams
+
+基础接口 字符类 [`Reader`](https://docs.oracle.com/javase/8/docs/api/java/io/Reader.html) and [`Writer`](https://docs.oracle.com/javase/8/docs/api/java/io/Writer.html)
+
+### Buffered Streams 一次处理 '一行' 数据
+
+[`BufferedInputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/BufferedInputStream.html) and [`BufferedOutputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/BufferedOutputStream.html) 
+
+[`BufferedReader`](https://docs.oracle.com/javase/8/docs/api/java/io/BufferedReader.html) and [`BufferedWriter`](https://docs.oracle.com/javase/8/docs/api/java/io/BufferedWriter.html)
+
+### Scanning and Formatting 更抽象的数据处理
+
+[`Scanner`](https://docs.oracle.com/javase/8/docs/api/java/util/Scanner.html) 带数据类型的读取 使用 nextXXX() 读取需要的数据类型
+
+[`PrintWriter`](https://docs.oracle.com/javase/8/docs/api/java/io/PrintWriter.html),  [`PrintStream`](https://docs.oracle.com/javase/8/docs/api/java/io/PrintStream.html), 格式化输出 
+
+示例
+
+> ```
+> System.out.format("The square root of %d is %f.%n", i, r);
+> // 匹配类型
+> 
+> 整形数字	d formats an integer value as a decimal value.
+> 浮点型数字  f formats a floating point value as a decimal value.
+> 结束符		n outputs a platform-specific line terminator.
+> 
+> 
+> 十六进制 	x formats an integer as a hexadecimal value.
+> 字符串 	s formats any value as a string.
+> ```
+
+![Elements of a format specifier](.\pic\formater.gif)
+
+### IO 流分类
+
+**第一种：按I/O类型来总体分类**
+
+   **1. Memory** 1）从/向内存数组读写数据: CharArrayReader、 CharArrayWriter、ByteArrayInputStream、ByteArrayOutputStream
+            2）从/向内存字符串读写数据 StringReader、StringWriter、StringBufferInputStream
+   **2. Pipe管道**  实现管道的输入和输出（进程间通信）: PipedReader、PipedWriter、PipedInputStream、PipedOutputStream
+   **3. File 文件流**。对文件进行读、写操作 ：FileReader、FileWriter、FileInputStream、FileOutputStream
+   **4. ObjectSerialization 对象输入、输出** ：ObjectInputStream、ObjectOutputStream
+   **5. DataConversion数据流** 按基本数据类型读、写（处理的数据是Java的基本类型（如布尔型，字节，整数和浮点数））：DataInputStream、DataOutputStream
+   **6. Printing** 包含方便的打印方法 ：PrintWriter、PrintStream
+   **7. Buffering缓冲** 在读入或写出时，对数据进行缓存，以减少I/O的次数：BufferedReader、BufferedWriter、BufferedInputStream、BufferedOutputStream
+   **8. Filtering** **滤流**，在数据进行读或写时进行过滤：FilterReader、FilterWriter、FilterInputStream、FilterOutputStream过
+   **9. Concatenation合并输入** 把多个输入流连接成一个输入流 ：SequenceInputStream 
+  **10. Counting计数** 在读入数据时对行记数 ：LineNumberReader、LineNumberInputStream
+  **11. Peeking Ahead** 通过缓存机制，进行预读 ：PushbackReader、PushbackInputStream
+  **12. Converting between Bytes and Characters** 按照一定的编码/解码标准将字节流转换为字符流，或进行反向转换（Stream到Reader,Writer的转换类）：InputStreamReader、OutputStreamWriter
+
+**第二种：按数据来源（去向）分类**
+  **1、File（文件）：** FileInputStream, FileOutputStream, FileReader, FileWriter 
+  **2、byte[]：**ByteArrayInputStream, ByteArrayOutputStream 
+  **3、Char[]:** CharArrayReader, CharArrayWriter 
+  **4、String:** StringBufferInputStream, StringReader, StringWriter 
+  **5、网络数据流：**InputStream, OutputStream, Reader, Writer 
+  **6、字节流** InputStream/OutputStream
+
+### IO 包 结构图
+
+![img](.\pic\IO包结构.png)
+
+### 命令行 IO 
+
+使用 [`Console`](https://docs.oracle.com/javase/8/docs/api/java/io/Console.html) 类 System.console()
+
+
+
+## NIO
+
 ### NIO 包结构
 
 ![nio包结构](pic/nio包结构.png)
@@ -264,5 +343,4 @@ ByteBuffer newbb = csencoder.encode(cb);
 FileLock.lock(long position, long size, boolean shared);
 FileLock.tryLock(long position, long size, boolean shared); // return null for fail
 ```
-
 
