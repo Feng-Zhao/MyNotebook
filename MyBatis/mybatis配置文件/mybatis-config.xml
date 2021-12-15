@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE configuration
+        PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <!-- properties 优先使用外部配置文件 -->
+    <properties resource="datasource.properties">
+    </properties>
+
+<!--    <settings>-->
+<!--        &lt;!&ndash; mapper缓存 全局开关&ndash;&gt;-->
+<!--        <setting name="cacheEnabled" value="true"/>-->
+<!--        &lt;!&ndash; 懒加载&ndash;&gt;-->
+<!--        <setting name="lazyLoadingEnabled" value="true"/>-->
+<!--        <setting name="multipleResultSetsEnabled" value="true"/>-->
+<!--        <setting name="useColumnLabel" value="true"/>-->
+<!--        &lt;!&ndash; 允许 JDBC 支持自动生成主键&ndash;&gt;-->
+<!--        <setting name="useGeneratedKeys" value="false"/>-->
+<!--        &lt;!&ndash; 指定 MyBatis 应如何自动映射列到字段或属性。-->
+<!--        NONE 表示关闭自动映射；-->
+<!--        PARTIAL 只会自动映射没有定义嵌套结果映射的字段。-->
+<!--        FULL 会自动映射任何复杂的结果集（无论是否嵌套）&ndash;&gt;-->
+<!--        <setting name="autoMappingBehavior" value="PARTIAL"/>-->
+<!--        &lt;!&ndash; 指定发现自动映射目标未知列（或未知属性类型）的行为。-->
+<!--        NONE: 不做任何反应-->
+<!--        WARNING: 输出警告日志（'org.apache.ibatis.session.AutoMappingUnknownColumnBehavior' 的日志等级必须设置为 WARN）-->
+<!--        FAILING: 映射失败 (抛出 SqlSessionException)&ndash;&gt;-->
+<!--        <setting name="autoMappingUnknownColumnBehavior" value="WARNING"/>-->
+<!--        &lt;!&ndash; 配置默认的执行器。-->
+<!--        SIMPLE 就是普通的执行器；-->
+<!--        REUSE 执行器会重用预处理语句（PreparedStatement）；-->
+<!--        BATCH 执行器不仅重用语句还会执行批量更新。&ndash;&gt;-->
+<!--        <setting name="defaultExecutorType" value="SIMPLE"/>-->
+<!--        &lt;!&ndash; 设置超时时间 秒 &ndash;&gt;-->
+<!--        <setting name="defaultStatementTimeout" value="25"/>-->
+<!--        <setting name="defaultFetchSize" value="100"/>-->
+<!--        <setting name="safeRowBoundsEnabled" value="false"/>-->
+<!--        &lt;!&ndash; 启驼峰命名自动映射&ndash;&gt;-->
+<!--        <setting name="mapUnderscoreToCamelCase" value="false"/>-->
+<!--        &lt;!&ndash; 本地缓存机制&ndash;&gt;-->
+<!--        <setting name="localCacheScope" value="SESSION"/>-->
+<!--        <setting name="jdbcTypeForNull" value="OTHER"/>-->
+<!--        <setting name="lazyLoadTriggerMethods" value="equals,clone,hashCode,toString"/>-->
+<!--    </settings>-->
+    
+    <settings>
+        <setting name="logImpl" value="SLF4J"/>
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+    </settings>
+
+    <typeAliases>
+        <package name="pojo"/>
+    </typeAliases>
+
+    <environments default="development">
+        <environment id="development">
+            <transactionManager type="JDBC"/>
+            <dataSource type="POOLED">
+                <property name="driver" value="${driver}"/>
+                <property name="url" value="${url}"/>
+                <property name="username" value="${username}"/>
+                <property name="password" value="${password}"/>
+            </dataSource>
+        </environment>
+    </environments>
+
+    <mappers>
+        <mapper resource="mapper/UserMapper.xml"/>
+    </mappers>
+
+</configuration>
