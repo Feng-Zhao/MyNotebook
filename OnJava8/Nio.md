@@ -40,6 +40,25 @@
 
 ![Elements of a format specifier](.\pic\formater.gif)
 
+### Data Stream 支持基本数据类型和String
+
+- [`DataInput`](https://docs.oracle.com/javase/8/docs/api/java/io/DataInput.html) and [`DataOutput`](https://docs.oracle.com/javase/8/docs/api/java/io/DataOutput.html) 接口
+
+  - 实现类 [`DataInputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/DataInputStream.html) and [`DataOutputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/DataOutputStream.html). 注： Data Stream 使用捕捉 [`EOFException`](https://docs.oracle.com/javase/8/docs/api/java/io/EOFException.html) 的方式感知文件结尾。另外 Data Stream 不适合用于金融方面的数字， 因为不支持 [`BigDecimal`](https://docs.oracle.com/javase/8/docs/api/java/math/BigDecimal.html)。金融方面的数字可以使用 object stream
+
+  - ```java
+    //使用示例
+    out = new DataOutputStream(new BufferedOutputStream(
+                  new FileOutputStream(dataFile)));
+    ```
+
+注： 使用同一个Stream 多次接收相同的 object 实例会得到相同的引用， 同一个object实例使用不同的Stream传输会得到不同的实例引用
+
+### Object Stream
+
+- 接口 [`ObjectInput`](https://docs.oracle.com/javase/8/docs/api/java/io/ObjectInput.html) and [`ObjectOutput`](https://docs.oracle.com/javase/8/docs/api/java/io/ObjectOutput.html) 这两个接口分别为 [`DataInput`](https://docs.oracle.com/javase/8/docs/api/java/io/DataInput.html) and [`DataOutput`](https://docs.oracle.com/javase/8/docs/api/java/io/DataOutput.html) 接口的子接口
+  - 实现类[`ObjectInputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/ObjectInputStream.html) and [`ObjectOutputStream`](https://docs.oracle.com/javase/8/docs/api/java/io/ObjectOutputStream.html). 支持 实现了 [`Serializable`](https://docs.oracle.com/javase/8/docs/api/java/io/Serializable.html) 接口的 object
+
 ### IO 流分类
 
 **第一种：按I/O类型来总体分类**
@@ -74,8 +93,6 @@
 
 使用 [`Console`](https://docs.oracle.com/javase/8/docs/api/java/io/Console.html) 类 System.console()
 
-
-
 ## NIO
 
 ### NIO 包结构
@@ -104,6 +121,121 @@
 |   选择器不可用   | 选择器可用于非阻塞 I/O 操作  |
 
 ----
+
+### [`Path`](https://docs.oracle.com/javase/8/docs/api/java/nio/file/Path.html) NIO 包的入口
+
+用来表示路径，即，文件夹 或 文件，通常可以和 Files 工具类一起使用。
+
+#### 创建 Path
+
+使用 Paths 工具类
+
+```java
+Path p1 = Paths.get("/tmp/foo");
+Path p3 = Paths.get(URI.create("file:///Users/joe/FileTest.java"));
+Path p5 = Paths.get(System.getProperty("user.home"),"logs", "foo.log");
+```
+
+
+
+注 [`Files`](https://docs.oracle.com/javase/8/docs/api/java/nio/file/Files.html) 是 nio包下的工具类， 注意于原 io 包下的 [`File`](https://docs.oracle.com/javase/8/docs/api/java/io/File.html) 类区分。
+
+Files 提供文件相关的 创建、删除、移动、读、写、匹配、类型检测等常规操作
+
+### Files 工具类 NIO 包的主要入口之一, 表示文件
+
+注意: 
+
+- 使用完毕后必须 close() 以释放资源
+- 使用时捕获对应异常
+
+
+
+### 文件读写:
+
+对于小文件, 一次性读写
+
+```java
+Path file = ...;
+byte[] fileArray;
+fileArray = Files.readAllBytes(file);
+
+Path file = ...;
+byte[] buf = ...;
+Files.write(file, buf);	
+```
+
+对于普通文件, 使用 Stream I/O
+
+```java
+Path file = ...;
+try (InputStream in = Files.newInputStream(file);
+    BufferedReader reader =
+      new BufferedReader(new InputStreamReader(in))) {
+    String line = null;
+    while ((line = reader.readLine()) != null) {
+        System.out.println(line);
+    }
+} catch (IOException x) {
+    System.err.println(x);
+}
+
+public class LogFileTest {
+
+  public static void main(String[] args) {
+
+    // Convert the string to a
+    // byte array.
+    String s = "Hello World! ";
+    byte data[] = s.getBytes();
+    Path p = Paths.get("./logfile.txt");
+
+    try (OutputStream out = new BufferedOutputStream(
+      Files.newOutputStream(p, CREATE, APPEND))) {
+      out.write(data, 0, data.length);
+    } catch (IOException x) {
+      System.err.println(x);
+    }
+  }
+}
+```
+
+对于更大文件和流, 使用 buffered Stream I/O
+
+```java
+Charset charset = Charset.forName("US-ASCII");
+String s = ...;
+try (BufferedWriter writer = Files.newBufferedWriter(file, charset)) {
+    writer.write(s, 0, s.length());
+} catch (IOException x) {
+    System.err.format("IOException: %s%n", x);
+}
+```
+
+使用 Channel 读写
+
+```java
+public static void readFile(Path path) throws IOException {
+
+    // Files.newByteChannel() defaults to StandardOpenOption.READ
+    try (SeekableByteChannel sbc = Files.newByteChannel(path)) {
+        final int BUFFER_CAPACITY = 10;
+        ByteBuffer buf = ByteBuffer.allocate(BUFFER_CAPACITY);
+
+        // Read the bytes with the proper encoding for this platform. If
+        // you skip this step, you might see foreign or illegible
+        // characters.
+        String encoding = System.getProperty("file.encoding");
+        while (sbc.read(buf) > 0) {
+            buf.flip();
+            System.out.print(Charset.forName(encoding).decode(buf));
+            buf.clear();
+        }
+    }    
+}
+```
+
+
 
 ### Channel
 
