@@ -25,8 +25,6 @@ DispatcherServlet 找 视图解析器 ViewResolver 去解析和渲染视图,
 视图解析器将渲染后的视图交给 DispatcherServlet ,
 DispatcherServlet 将结果返还给用户.
 
-
-
 ## 配置
 
 web.xml
