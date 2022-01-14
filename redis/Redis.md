@@ -1,3 +1,5 @@
+[toc]
+
 # Redis palyground
 
 > 性能测定: 读 11W每秒, 写 8W 每秒
@@ -129,7 +131,7 @@ PERSIST key  // 取消 key 的过期时间
 
 
 
-## 数据类型
+## ==数据类型==
 
 ### String(同时也是数字)
 
@@ -608,7 +610,7 @@ public class RedisConfig {
 
 
 
-## 持久化
+## ==持久化==
 
 ### RDB 原理
 

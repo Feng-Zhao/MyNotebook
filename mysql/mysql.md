@@ -79,6 +79,8 @@ TIMESTAMP column with CURRENT_TIMESTAMP 问题： --> 升级到5.5以上
 
 ## ==MVCC 并发版本控制==
 
+MVCC 的好处, 区别读写操作, 快照读 for read, 当前读 for write. 提高读写操作并发度, 写操作可以不用等待读操作完成.(因为读操作会去找对应的版本号记录)
+
 ![image-20211224170048621](D:\MyGitProjectWorkSpace\MyNotebook\mysql\pic\mvcc版本链.png)
 
 ## ==ReadView 实现事务隔离==
@@ -326,24 +328,130 @@ LIMIT
 - REGEXP 正则
 - where MATCH(col_name) against ("value")  在设置了 FULLTEXT 全文检索索引的列上可以用
 
-## MySQL 主从复制
+## ==MySQL 主从复制==
 
 主机使用 binlog 记录所有数据的更改, 从机拉取 binlog 并放入到 自己的 relay log 并且重做操作
 
-## Mysql数据库日志
+注: binlog 可理解为为逻辑日志
 
-- redo
-- undo
+实际上有三种可选: 
+
+- statement 记录 sql
+- row 物理日志, 记录数据变更
+- mixed 根据 sql 不同, 混合使用
+
+binlog刷盘:
+
+​	每次commit 刷盘
+
+​	每组 commit (N个事务) 提交后刷盘
+
+## ==Mysql数据库日志 binlog redolog undolog==
+
+### ==binlog==
+
+- binlog: mysql server 层记录的日志, 主要作用于主从同步 和 崩溃恢复, 刷盘机制可选, (1.由系统决定	2. 每次事务 commit 刷盘 	3. N 次事务提交后刷盘).
+
+记录内容可选( 1. 记录sql -> statement, 2. 记录更新的数据 row, 3. 混合 mixed)
+
+### 
+
+### ==redolog==
+
+- redo: 用于事务提交 和 崩溃恢复, 在数据修改时, 先写 redolog 再刷数据, 由于redolog是 顺序写入的, 对于系统性能不会有很大影响, 此外redolog 为物理日志,记录物理块的更改, (注:其实现为 page 间 物理日志, pege 内 逻辑日志)
+- 刷盘: 
+  - 每秒 从 redo buffer 刷到磁盘
+  - 每次 commit 刷盘
+  - 每次 commit 刷到 os cache, os cache 每秒刷到磁盘
+  - 以上为可配置项 此外还可配置定时刷盘 和 redo buffer 满一定比例时刷盘
+
+
+### ==undolog==
+
+- undo: 用于回滚, 保证事务原子性. innoDB中 由于 undolog 还承担 MVCC 的职责, 所以 undolog 实际上是以类似于数据的方式对待的, 即, undolog 也作为数据写在 redolog 中, (崩溃恢复时 由redolog 将undolog回放到 buffer pool. 之后再用 undolog 和 binlog 中记录的已提交事务做对比, 若数据已经写入binlog 则事务做提交处理, 若未写入  binlog, 则作回滚处理), undolog 为逻辑日志(即,可理解为记录的是逆向 sql 语句). 此外 undolog 的清理由 purge 线程管理(因为 MVCC 的原因, 事务提交后并不一定会清理 undolog)
+- 刷盘: 随redulog 刷盘
+
+
+
+### ==数据写入顺序== (先undo, redolog 二阶段提交)
+
+1. 读取数据到 buffer pool
+2. 记录 undolog
+3. 记录 redolog prepare
+4. 修改内存数据
+5. 事务提交, 记录 binlog
+6. redolog 标记事务 commit
+
+## ==事务嵌套==
+
+默认情况下, 在未提交事务中再次开启事务, 会自动把当前事务提交.
+
+### ==崩溃恢复==
+
+注: innodb 崩溃恢复流程为: 其原理为 redolog 的二阶段提交, 即 事务操作会 先写 redulog, 此时处于 prepare 阶段, 事务提交时 binlog刷盘, 然后redolog 标记 commit
+
+- 读取 redolog 检查 check point
+- 从最近的 check point 做回放, (此时完成 undolog 在 bufferpool 中的重构)
+- 检查 binlog , 并与 undolog 中记录的未提交事务列表做对比, 若binlog 已记录事务的数据修改, 则将事务重新标记为commit, 若binlog中未记录事务的数据修改, 则将事务回滚.
+
+
+
+## ==分布式事务 二阶段提交 三阶段提交==
+
+### 二阶段提交 2PC (投票,提交)
+
+- 协调者询问参与者状态
+- 参与者执行操作, 并将结果反馈给协调
+- 若所有参与者都操作成功, 协调者告知所有参与者进行真正的 commit, 否则所有参与者回滚事务
+
+缺点:
+
+- 协调者单点故障后 有可能会阻塞已经报告可以提交但是正在等待协调者发送 commit 的线程
+- 资源长期占用, 吞吐量下降, 从参与者一阶段开始, 直到二阶段结束,事务真正提交完毕, 期间都要锁定资源
+
+### 三阶段提交 3PC (CanCommit、PreCommit、DoCommit)
+
+- CanCommit 协调者询问, 参与者尝试获取锁
+- PreCommit 参与者执行操作, 这里和 2PC 区别为: 参与者/协调者 都引入超时机制, 若协调者此时故障, 参与者判定协调者超时, 可以自动回滚
+- DoCommit: 真正提交事务
+
+
 
 ## ==关于跨库跨表查询==
 
 分库分表解决方案:
 
-​	shardingSphere(ShardingJDBC,ShardingProxy), mycat, DBLE
+​	==shardingSphere(ShardingJDBC,ShardingProxy), mycat, DBLE==
 
 newSQL:
 
 ​	postgresql, voltdb, tidb, oceanbase
+
+
+
+## ==Mysql 锁==
+
+种类:
+
+​	共享锁 S
+
+​	排他锁 X
+
+​	意向共享锁 IS (一种表锁) SELECT ... FOR SHARE, 事务要取得 S 锁时, 必须先获取 IS 或 更高级别的锁
+
+​	意向排他锁 IX (一种表锁) SELECT ... FOR UODATE, 事务要取得 X 锁时, 必须先获取 IX 或 更高级别的锁
+
+范围:
+
+​	行锁
+
+​	间隙锁
+
+​	next-key
+
+innoDB 默认使用 next-key, 仅在 查询索引是 唯一索引时, 才对 next-key lock 降级为 record lock (注: RR 级别下 默认使用 next-key lock, 若调整为 RC 级别, 则默认使用 record lock)
+
+
 
 ## 金融货币的存储
 
