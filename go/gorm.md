@@ -57,7 +57,7 @@ type User struct {
 }
 ```
 
-**注: 所有零值默认不填入库,如果需要将零值入库,需要在 model 里将该字段指定为指针形式**
+**注:** 所有零值默认不填入库,如果需要将零值入库,需要在 model 里将该字段指定为指针形式
 
 ## \*字段权限管理
 
@@ -640,7 +640,16 @@ sql //=> SELECT * FROM "users" WHERE id = 100 AND "users"."deleted_at" IS NULL O
 ### insert/create Hook
 
 Hook Func:
-BeforeSave(), BeforeCreate(), AfterSave(), AfterCreate()
+
+> // 开始事务
+  BeforeSave
+  BeforeCreate
+  // 关联前的 save
+  // 插入记录至 db
+  // 关联后的 save
+  AfterCreate
+  AfterSave
+  // 提交或回滚事务
 
 ```go
 // hook
@@ -661,7 +670,7 @@ DB.Session(&gorm.Session{SkipHooks: true}).CreateInBatches(users, 100)
 
 ### update hook
 
-BeforeSave, BeforeUpdate, AfterSave, AfterUpdate
+BeforeSave, BeforeUpdate, AfterUpdate, AfterSave,
 
 ```go
 func (u *User) BeforeUpdate(tx *gorm.DB) (err error) {
@@ -684,6 +693,10 @@ func (u *User) BeforeDelete(tx *gorm.DB) (err error) {
   return
 }
 ```
+
+### select hook
+
+AfterFind
 
 ## 数据关系
 
@@ -758,4 +771,524 @@ type CreditCard struct {
   Number   string
   UserName string
 }
+// ======自引用=============
+type User struct {
+  gorm.Model
+  Name      string
+  ManagerID *uint
+  Manager   *User
+}
+// ======外键约束=============
+type User struct {
+  gorm.Model
+  CreditCard CreditCard `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+}
+
+type CreditCard struct {
+  gorm.Model
+  Number string
+  UserID uint
+}
+```
+
+### Has Many 嵌入 slice
+
+```go
+// User 有多张 CreditCard，UserID 是外键
+type User struct {
+  gorm.Model
+  CreditCards []CreditCard
+}
+
+type CreditCard struct {
+  gorm.Model
+  Number string
+  UserID uint
+}
+
+type User struct {
+  gorm.Model
+  CreditCards []CreditCard `gorm:"foreignKey:UserRefer"`
+}
+// 指定外键变量名
+type CreditCard struct {
+  gorm.Model
+  Number    string
+  UserRefer uint
+}
+// 指定外键引用
+type User struct {
+  gorm.Model
+  MemberNumber string
+  CreditCards  []CreditCard `gorm:"foreignKey:UserNumber;references:MemberNumber"`
+}
+
+type CreditCard struct {
+  gorm.Model
+  Number     string
+  UserNumber string
+}
+// 外键约束
+type User struct {
+  gorm.Model
+  CreditCards []CreditCard `gorm:"constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
+}
+
+type CreditCard struct {
+  gorm.Model
+  Number string
+  UserID uint
+}
+```
+
+### Many to Many 多对多
+
+会自动创建一张连接表
+
+```go
+// User 拥有并属于多种 language，`user_languages` 是连接表
+type User struct {
+  gorm.Model
+  Languages []Language `gorm:"many2many:user_languages;"`
+}
+
+type Language struct {
+  gorm.Model
+  Name string
+}
+
+// User 拥有并属于多种 language，`user_languages` 是连接表
+// 带反向引用
+type User struct {
+  gorm.Model
+  Languages []*Language `gorm:"many2many:user_languages;"`
+}
+
+type Language struct {
+  gorm.Model
+  Name string
+  Users []*User `gorm:"many2many:user_languages;"`
+}
+
+// 多对多的自引用
+type User struct {
+  gorm.Model
+    Friends []*User `gorm:"many2many:user_friends"`
+}
+
+// 自定义链接表
+type Person struct {
+  ID        int
+  Name      string
+  Addresses []Address `gorm:"many2many:person_addresses;"`
+}
+
+type Address struct {
+  ID   uint
+  Name string
+}
+
+type PersonAddress struct {
+  PersonID  int `gorm:"primaryKey"`
+  AddressID int `gorm:"primaryKey"`
+  CreatedAt time.Time
+  DeletedAt gorm.DeletedAt
+}
+
+func (PersonAddress) BeforeCreate(db *gorm.DB) error {
+  // ...
+}
+
+// 修改 Person 的 Addresses 字段的连接表为 PersonAddress
+// PersonAddress 必须定义好所需的外键，否则会报错
+err := db.SetupJoinTable(&Person{}, "Addresses", &PersonAddress{})
+
+```
+
+## 关联模式
+
+在有关联的实体被创建时,gorm 会使用 Upsert
+保存关联记录
+使用 update 时,若想要做关联更新,需要使用`FullSaveAssociations`模式.
+`db.Session(&gorm.Session{FullSaveAssociations: true}).Updates(&user)
+`
+
+想要跳过或者忽略某些关联记录时,可以使用`Select` 或`Omit`
+
+> db.Select("Name").Create(&user)
+  // INSERT INTO "users" (name) VALUES ("jinzhu", 1, 2);
+  db.Omit("BillingAddress").Create(&user)
+  // Skip create BillingAddress when creating a user
+  db.Omit(clause.Associations).Create(&user)
+  // Skip all associations when creating a user
+
+## 预加载
+
+使用 `Preload` 或者 `Join`
+
+```go
+db.Preload("Orders").Preload("Profile").Preload("Role").Find(&users)
+// SELECT * FROM users;
+// SELECT * FROM orders WHERE user_id IN (1,2,3,4); // has many
+// SELECT * FROM profiles WHERE user_id IN (1,2,3,4); // has one
+// SELECT * FROM roles WHERE id IN (4,5,6); // belongs to
+
+db.Joins("Company").Joins("Manager").Joins("Account").First(&user, 1)
+db.Joins("Company").Joins("Manager").Joins("Account").First(&user, "users.name = ?", "jinzhu")
+db.Joins("Company").Joins("Manager").Joins("Account").Find(&users, "users.id IN ?", []int{1,2,3,4,5})
+
+// 区别在与 preload 是多次查询每次填写 model 的一部分
+// 而 join 是使用 join 语句一次性查询出来
+```
+
+**注** Join Preload 适用于一对一的关系，例如： has one, belongs to
+
+## 错误处理
+
+```go
+if err := db.Where("name = ?", "jinzhu").First(&user).Error; err != nil {
+  // 处理错误...
+}
+// 或者
+if result := db.Where("name = ?", "jinzhu").First(&user); result.Error != nil {
+  // 处理错误...
+}
+
+// 检查错误是否为 RecordNotFound
+err := db.First(&user, 100).Error
+errors.Is(err, gorm.ErrRecordNotFound)
+```
+
+> [error 列表](https://github.com/go-gorm/gorm/blob/master/errors.go)
+
+## Context
+
+context 用于一些列连续的操作,就像使用 MySQL shell 那样,开启一个会话,内部是通过 db.getInstance()来获取一份实例,之后复用实例,类似于 builder 模式和链式操作
+
+### 链式方法
+
+`Where、Select、Omit、Joins、Scopes、Preload` 等
+
+### Finisher
+
+`Create, First, Find, Take, Save, Update, Delete, Scan, Row, Rows` 等
+
+### 会话模式
+
+使用 `Session、WithContext、Debug` 开启会话,内部是创建一个新的 statement 实例.
+
+## Session
+
+Session 是一个可以带配置的会话
+
+```go
+// Session 配置
+type Session struct {
+  DryRun                 bool // 只生成 sql, 不执行
+  PrepareStmt            bool // 预编译 sql
+  NewDB                  bool
+  SkipHooks              bool
+  SkipDefaultTransaction bool
+  AllowGlobalUpdate      bool
+  FullSaveAssociations   bool
+  Context                context.Context
+  Logger                 logger.Interface
+  NowFunc                func() time.Time
+}
+```
+
+## 事务
+
+gorm 默认是开启事务的,关闭事务能够用提高约 30% 的性能提升
+
+```go
+// 全局禁用
+db, err := gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{
+  SkipDefaultTransaction: true,
+})
+
+// 一个会话中关闭事务
+tx := db.Session(&Session{SkipDefaultTransaction: true})
+tx.First(&user, 1)
+tx.Find(&users)
+tx.Model(&user).Update("Age", 18)
+```
+
+启用事务
+
+```go
+// 手动启用事务
+db.Transaction(func(tx *gorm.DB) error {
+  // 在事务中执行一些 db 操作（从这里开始，您应该使用 'tx' 而不是 'db'）
+  if err := tx.Create(&Animal{Name: "Giraffe"}).Error; err != nil {
+    // 返回任何错误都会回滚事务
+    return err
+  }
+
+  if err := tx.Create(&Animal{Name: "Lion"}).Error; err != nil {
+    return err
+  }
+
+  // 返回 nil 提交事务
+  return nil
+})
+```
+
+纯手动调用事务
+
+```go
+// 开始事务
+tx := db.Begin()
+
+// 在事务中执行一些 db 操作（从这里开始，您应该使用 'tx' 而不是 'db'）
+tx.Create(...)
+
+// ...
+
+// 遇到错误时回滚事务
+tx.Rollback()
+
+// 否则，提交事务
+tx.Commit()
+```
+
+保存点
+
+```go
+tx := db.Begin()
+tx.Create(&user1)
+
+tx.SavePoint("sp1")
+tx.Create(&user2)
+tx.RollbackTo("sp1") // Rollback user2
+
+tx.Commit() // Commit user1
+```
+
+## AutoMigration
+
+可以通过 go structure 创建数据库
+
+```go
+db.AutoMigrate(&User{})
+db.AutoMigrate(&User{}, &Product{}, &Order{})
+// 创建表时添加后缀
+db.Set("gorm:table_options", "ENGINE=InnoDB").AutoMigrate(&User{})
+
+// 禁止自动出创建外键约束
+db, err := gorm.Open(sqlite.Open("gorm.db"), &gorm.Config{
+  DisableForeignKeyConstraintWhenMigrating: true,
+})
+```
+
+## Logger
+
+```go
+// logger 会打印慢 SQL 和错误
+newLogger := logger.New(
+  log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer（日志输出的目标，前缀和日志包含的内容——译者注）
+  logger.Config{
+    SlowThreshold: time.Second,   // 慢 SQL 阈值
+    LogLevel:      logger.Silent, // 日志级别
+    IgnoreRecordNotFoundError: true,   // 忽略ErrRecordNotFound（记录未找到）错误
+    Colorful:      false,         // 禁用彩色打印
+  },
+)
+
+// 全局模式
+db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{
+  Logger: newLogger,
+})
+
+// 新建会话模式
+tx := db.Session(&Session{Logger: newLogger})
+tx.First(&user)
+tx.Model(&user).Update("Age", 18)
+```
+
+## 常规数据库接口 sql.DB
+
+```go
+// 获取通用数据库对象 sql.DB，然后使用其提供的功能
+sqlDB, err := db.DB()
+
+// Ping
+sqlDB.Ping()
+
+// Close
+sqlDB.Close()
+
+// 返回数据库统计信息
+sqlDB.Stats()
+
+// ==============连接池相关==============
+
+// 获取通用数据库对象 sql.DB ，然后使用其提供的功能
+sqlDB, err := db.DB()
+
+// SetMaxIdleConns 用于设置连接池中空闲连接的最大数量。
+sqlDB.SetMaxIdleConns(10)
+
+// SetMaxOpenConns 设置打开数据库连接的最大数量。
+sqlDB.SetMaxOpenConns(100)
+
+// SetConnMaxLifetime 设置了连接可复用的最大时间。
+sqlDB.SetConnMaxLifetime(time.Hour)
+```
+
+## Scope
+
+作用域允许你复用通用的逻辑，这种共享逻辑需要定义为类型func(*gorm.DB)*gorm.DB。
+
+```go
+// 可复用的查询逻辑
+func AmountGreaterThan1000(db *gorm.DB) *gorm.DB {
+  return db.Where("amount > ?", 1000)
+}
+
+func PaidWithCreditCard(db *gorm.DB) *gorm.DB {
+  return db.Where("pay_mode_sign = ?", "C")
+}
+
+func PaidWithCod(db *gorm.DB) *gorm.DB {
+  return db.Where("pay_mode_sign = ?", "C")
+}
+
+func OrderStatus(status []string) func (db *gorm.DB) *gorm.DB {
+  return func (db *gorm.DB) *gorm.DB {
+    return db.Where("status IN (?)", status)
+  }
+}
+
+db.Scopes(AmountGreaterThan1000, PaidWithCreditCard).Find(&orders)
+// 查找所有金额大于 1000 的信用卡订单
+
+db.Scopes(AmountGreaterThan1000, PaidWithCod).Find(&orders)
+// 查找所有金额大于 1000 的 COD 订单
+
+db.Scopes(AmountGreaterThan1000, OrderStatus([]string{"paid", "shipped"})).Find(&orders)
+// 查找所有金额大于1000 的已付款或已发货订单
+
+// ==== 分页 =========================
+func Paginate(r *http.Request) func(db *gorm.DB) *gorm.DB {
+  return func (db *gorm.DB) *gorm.DB {
+    page, _ := strconv.Atoi(r.Query("page"))
+    if page == 0 {
+      page = 1
+    }
+
+    pageSize, _ := strconv.Atoi(r.Query("page_size"))
+    switch {
+    case pageSize > 100:
+      pageSize = 100
+    case pageSize <= 0:
+      pageSize = 10
+    }
+
+    offset := (page - 1) * pageSize
+    return db.Offset(offset).Limit(pageSize)
+  }
+}
+
+db.Scopes(Paginate(r)).Find(&users)
+db.Scopes(Paginate(r)).Find(&articles)
+
+// ==== 分表后的动态查询 =========================
+func TableOfYear(user *User, year int) func(db *gorm.DB) *gorm.DB {
+  return func(db *gorm.DB) *gorm.DB {
+        tableName := user.TableName() + strconv.Itoa(year)
+        return db.Table(tableName)
+  }
+}
+
+DB.Scopes(TableOfYear(user, 2019)).Find(&users)
+// SELECT * FROM users_2019;
+
+DB.Scopes(TableOfYear(user, 2020)).Find(&users)
+// SELECT * FROM users_2020;
+
+// Table form different database
+func TableOfOrg(user *User, dbName string) func(db *gorm.DB) *gorm.DB {
+  return func(db *gorm.DB) *gorm.DB {
+        tableName := dbName + "." + user.TableName()
+        return db.Table(tableName)
+  }
+}
+
+DB.Scopes(TableOfOrg(user, "org1")).Find(&users)
+// SELECT * FROM org1.users;
+
+DB.Scopes(TableOfOrg(user, "org2")).Find(&users)
+// SELECT * FROM org2.users;
+```
+
+## gorm 的约定
+
+### 主键
+
+```go
+type User struct {
+  ID   string // 默认情况下，名为 `ID` 的字段会作为表的主键
+  Name string
+}
+
+// 可以通过标签 primaryKey 将其它字段设为主键
+type Animal struct {
+  ID     int64
+  UUID   string `gorm:"primaryKey"` // 将 `UUID` 设为主键
+  Name   string
+  Age    int64
+}
+```
+
+### 表名
+
+对于结构体 User，根据约定，其表名为 users
+
+实现 Tabler 接口来更改默认表名
+
+```go
+type Tabler interface {
+    TableName() string
+}
+
+// TableName 会将 User 的表名重写为 `profiles`
+func (User) TableName() string {
+  return "profiles"
+}
+```
+
+**注** : TableName 不支持动态变化，它会被缓存下来以便后续使用。想要使用动态表名，可以使用 Scopes
+
+### 列名
+
+使用蛇形命名
+
+```go
+type User struct {
+  ID        uint      // 列名是 `id`
+  Name      string    // 列名是 `name`
+  Birthday  time.Time // 列名是 `birthday`
+  CreatedAt time.Time // 列名是 `created_at`
+}
+
+// 可以使用 column 标签或 命名策略 来覆盖列名
+type Animal struct {
+  AnimalID int64     `gorm:"column:beast_id"`         // 将列名设为 `beast_id`
+  Birthday time.Time `gorm:"column:day_of_the_beast"` // 将列名设为 `day_of_the_beast`
+  Age      int64     `gorm:"column:age_of_the_beast"` // 将列名设为 `age_of_the_beast`
+}
+```
+
+## 自定义插件
+
+```go
+// 实现
+type Plugin interface {
+  Name() string
+  Initialize(*gorm.DB) error
+}
+// 调用
+db.Config.Plugins[pluginName]
+
 ```
