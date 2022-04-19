@@ -81,7 +81,7 @@ TIMESTAMP column with CURRENT_TIMESTAMP 问题： --> 升级到5.5以上
 
 MVCC 的好处, 区别读写操作, 快照读 for read, 当前读 for write. 提高读写操作并发度, 写操作可以不用等待读操作完成.(因为读操作会去找对应的版本号记录)
 
-![image-20211224170048621](D:\MyGitProjectWorkSpace\MyNotebook\mysql\pic\mvcc版本链.png)
+![image-20211224170048621](./pic/mvcc版本链.png)
 
 ## ==ReadView 实现事务隔离==
 
