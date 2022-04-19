@@ -20,12 +20,15 @@ docker run -p 80:80 -p 443:443 --name nginx \
 -d nginx
 
 ## 配置文件
+
 配置文件中分为
+
 - 单指令 以 空格为分隔, 以分号 `;` 为结尾
 - 块指令 以 {} 包围
 - `#` 为注释
 
 内容结构
+
 ```txt
 - main
     - events
@@ -35,6 +38,7 @@ docker run -p 80:80 -p 443:443 --name nginx \
 ```
 
 ### 按文件类型映射不同路径
+
 ```nginx
 http{
     server{
@@ -59,6 +63,7 @@ http{
 ```
 
 ### 设置监听端口和转发代理
+
 ```nginx
 http{
     server{
@@ -74,8 +79,8 @@ http{
 }
 ```
 
-
 ### 使用正则表达式
+
 ```nginx
 # 使用 - 标识后边的参数是一个正则表达式
 location - \.(gif|jpg|png)$ {
