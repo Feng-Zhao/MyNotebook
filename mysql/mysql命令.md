@@ -7,13 +7,13 @@
 
 `GRANT ALL ON db_name.table_name TO 'your_mysql_name'@'your_client_host';`
 
-### 创建数据库
-
-`CREATE DATABASE menagerie;`
-
 ### 数据库查询
 
 `SHOW DATABASES;`
+
+### 创建数据库
+
+`CREATE DATABASE menagerie;`
 
 ### 查询所有表名
 
