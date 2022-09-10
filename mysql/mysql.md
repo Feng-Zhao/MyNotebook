@@ -344,8 +344,6 @@ binlog刷盘:
 
 记录内容可选( 1. 记录sql -> statement, 2. 记录更新的数据 row, 3. 混合 mixed)
 
-###
-
 ### ==redolog==
 
 - redo: 用于事务提交 和 崩溃恢复, 在数据修改时, 先写 redolog 再刷数据, 由于redolog是 顺序写入的, 对于系统性能不会有很大影响, 此外redolog 为物理日志,记录物理块的更改, (注:其实现为 page 间 物理日志, pege 内 逻辑日志)
